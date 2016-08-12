@@ -6,7 +6,7 @@ Simple HTTP API around [https://github.com/boombuler/barcode](https://github.com
 
 Simply issue a get using the type of barcode desired as path and the content as queryString content and it will return a redirect to generated png.
 
-  $ curl -X GET http://localhost:8080/datamatrix?content=Whatever%20data
+    $ curl -v http://localhost:8080/datamatrix?content=Whatever%20data
 
 Available types:
 
@@ -26,7 +26,7 @@ Using the binary, download from the release page and run the binary and it will 
 
 Using docker:
 
-  $ docker run -p 8080:8080 -v /tmp/barcodes:/opt/barcode/public diogok/barcodeserver
+    $ docker run -p 8080:8080 -v /tmp/barcodes:/opt/barcode/public diogok/barcodeserver
 
 
 It will save generated code at public folder. You can delete generated artefacts and if requested server will regenerate.
