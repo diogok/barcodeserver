@@ -1,10 +1,14 @@
 package main
 
 import (
-	"bufio"
-	"crypto/sha1"
-	"encoding/hex"
+	"bytes"
 	"fmt"
+	"image/png"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+
 	"github.com/boombuler/barcode"
 	"github.com/boombuler/barcode/codabar"
 	"github.com/boombuler/barcode/code128"
@@ -14,21 +18,7 @@ import (
 	"github.com/boombuler/barcode/qr"
 	"github.com/boombuler/barcode/twooffive"
 	"github.com/julienschmidt/httprouter"
-	"image/png"
-	"log"
-	"net/http"
-	"os"
-	"strconv"
 )
-
-func IdToPath(id string) string {
-	hasher := sha1.New()
-	hasher.Write([]byte(id))
-	hash := hex.EncodeToString(hasher.Sum(nil))
-	path := fmt.Sprintf("%s/%s/%s.png", hash[0:2], hash[2:4], hash)
-	os.MkdirAll(fmt.Sprintf("public/%s/%s", hash[0:2], hash[2:4]), 0755)
-	return path
-}
 
 func Get(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	bartype := p.ByName("type")
@@ -56,15 +46,6 @@ func Get(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		log.Println(herr)
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Error: %s", herr)
-		return
-	}
-
-	id := fmt.Sprintf("%s:%s:%d:%d", bartype, content, width, height)
-	path := IdToPath(id)
-	realPath := fmt.Sprintf("public/%s", path)
-
-	if _, err := os.Stat(realPath); err == nil {
-		http.Redirect(w, r, fmt.Sprintf("/%s", path), 307)
 		return
 	}
 
@@ -163,26 +144,20 @@ func Get(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 			return
 		}
 
-		file, ferr := os.Create(realPath)
-		if ferr != nil {
-			log.Println(ferr)
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "Error: %s", ferr)
-			return
-		}
-		defer file.Close()
-
-		writer := bufio.NewWriter(file)
-		perr := png.Encode(writer, finalBarcode)
+		imageBuffer := new(bytes.Buffer)
+		perr := png.Encode(imageBuffer, finalBarcode)
 		if perr != nil {
 			log.Println(perr)
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, "Error: %s", perr)
 			return
 		}
-		writer.Flush()
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Content-Length", strconv.Itoa(len(imageBuffer.Bytes())))
 
-		http.Redirect(w, r, fmt.Sprintf("/%s", path), 307)
+		if _, err := w.Write(imageBuffer.Bytes()); err != nil {
+			log.Println("unable to write image.")
+		}
 	}
 }
 
